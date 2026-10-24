@@ -1,0 +1,14 @@
+Retrieval-Augmented Generation (RAG) Architecture Overview
+
+1. What is RAG?
+Retrieval-Augmented Generation (RAG) is an AI framework that optimizes the output of large language models (LLMs) by referencing an authoritative knowledge base outside of its training data sources before generating a response.
+
+2. Why is RAG Important?
+LLMs are trained on vast amounts of historical data and use billions of parameters to generate original output. However, their knowledge is frozen at the cutoff date and they can hallucinate facts. RAG solves this by providing up-to-date, domain-specific, and verifiable context retrieved directly from user-provided documents.
+
+3. Core Components of a RAG Pipeline:
+- Ingestion & Chunking: Dividing long documents into manageable chunks (e.g., 500 tokens with 50-token overlap).
+- Vector Embeddings: Converting text chunks into high-dimensional numerical vectors that capture semantic meaning.
+- Vector Database / Index: Storing vectors for fast nearest-neighbor similarity search (using Cosine Similarity or Dot Product).
+- Retrieval: Fetching the top-k most relevant chunks matching the user's query.
+- Generation: Passing the retrieved chunks along with the user's prompt to an LLM to generate an accurate, grounded answer with citations.
