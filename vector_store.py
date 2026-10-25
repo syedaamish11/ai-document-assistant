@@ -1,11 +1,13 @@
-"""
+﻿"""
 Vector Store and Similarity Search Engine
-Implements an in-memory TF-IDF semantic vector space for fast retrieval without external API locks.
+Implements an in-memory TF-IDF semantic vector space with persistence,
+metadata tracking, and cosine similarity retrieval without external API locks.
 """
 
+import json
 import math
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 class SimpleVectorStore:
     def __init__(self):
@@ -31,7 +33,7 @@ class SimpleVectorStore:
             for token in tokens:
                 doc_frequencies[token] = doc_frequencies.get(token, 0) + 1
 
-        self.vocabulary = {term: idx for idx, term in enumerate(doc_frequencies.keys())}
+        self.vocabulary = {term: idx for idx, term in enumerate(sorted(doc_frequencies.keys()))}
 
         # 2. Compute Inverse Document Frequency (IDF)
         for term, freq in doc_frequencies.items():
@@ -66,14 +68,20 @@ class SimpleVectorStore:
 
         return vector
 
-    def search(self, query: str, top_k: int = 3) -> List[Tuple[Dict[str, any], float]]:
-        """Performs cosine similarity search against indexed document chunks."""
+    def search(self, query: str, top_k: int = 3, source_filter: Optional[str] = None) -> List[Tuple[Dict[str, any], float]]:
+        """
+        Performs cosine similarity search against indexed document chunks.
+        Optionally filters results by source document filename.
+        """
         query_vector = self._compute_vector(query)
         if not query_vector:
             return []
 
         results = []
         for doc in self.documents:
+            if source_filter and doc.get("source") != source_filter:
+                continue
+
             doc_vec = doc.get("vector", {})
             score = sum(query_vector[t] * doc_vec.get(t, 0.0) for t in query_vector)
             if score > 0.0:
@@ -81,3 +89,32 @@ class SimpleVectorStore:
 
         results.sort(key=lambda x: x[1], reverse=True)
         return results[:top_k]
+
+    def save_index(self, file_path: str):
+        """Persists the indexed vector store (documents, vocabulary, idf) to JSON."""
+        data = {
+            "documents": self.documents,
+            "vocabulary": self.vocabulary,
+            "idf": self.idf
+        }
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+    def load_index(self, file_path: str):
+        """Loads a previously saved vector index from JSON."""
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.documents = data.get("documents", [])
+        self.vocabulary = data.get("vocabulary", {})
+        self.idf = data.get("idf", {})
+
+    def get_statistics(self) -> Dict[str, any]:
+        """Returns summary metrics about the indexed documents."""
+        total_words = sum(doc.get("word_count", 0) for doc in self.documents)
+        sources = sorted(list({doc.get("source", "unknown") for doc in self.documents}))
+        return {
+            "total_chunks": len(self.documents),
+            "vocabulary_size": len(self.vocabulary),
+            "total_words": total_words,
+            "unique_sources": sources
+        }
